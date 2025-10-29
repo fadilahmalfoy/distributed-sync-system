@@ -1,0 +1,98 @@
+# version: '3.8' 
+
+services:
+  # --- Layanan Redis ---
+  redis:
+    image: "redis:7-alpine" # Gunakan image Redis resmi
+    container_name: redis_server # Beri nama yang jelas
+    hostname: redis # Nama host yang bisa diakses node lain
+    ports:
+      - "6379:6379" # Map port Redis ke host
+    # Perintah untuk menjalankan Redis dengan persistensi AOF
+    command: redis-server --appendonly yes 
+    volumes:
+      - redis_data:/data # Volume untuk menyimpan data Redis secara persisten
+    networks:
+      - dist_sys_net # Hubungkan ke jaringan kustom
+
+  # --- Node Lock Manager (Raft) ---
+  node_lock_1:
+    build:
+      context: .. # Direktori root proyek Anda
+      dockerfile: docker/Dockerfile.node # Path ke Dockerfile
+    container_name: node_lock_1
+    hostname: node_lock_1
+    environment:
+      # Konfigurasi spesifik untuk node ini (Poin 4)
+      - NODE_ID=node-lock-1
+      - NODE_HOST=0.0.0.0 
+      - NODE_PORT=8001
+      # - PEER_ADDRESSES=http://node_lock_2:8002,http://node_lock_3:8003 
+      - REDIS_HOST=redis 
+      - REDIS_PORT=6379
+    ports:
+      - "8001:8001" # Map port node ke host
+    # Perintah untuk menjalankan node lock (Poin 1, 2)
+    command: python -m src.nodes.main --env-file .env.docker --node-type lock
+    networks:
+      - dist_sys_net
+    depends_on:
+      - redis # Pastikan Redis siap sebelum node ini dimulai
+
+  # --- Node Queue (Consistent Hashing) ---
+  node_queue_1:
+    build: { context: .., dockerfile: docker/Dockerfile.node }
+    container_name: node_queue_1
+    hostname: node_queue_1
+    environment:
+      - NODE_ID=node-queue-1
+      - NODE_HOST=0.0.0.0
+      - NODE_PORT=9001
+      # - PEER_ADDRESSES=http://node_queue_2:9002,http://node_queue_3:9003
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports: ["9001:9001"]
+    # Perintah untuk menjalankan node queue (Poin 1, 2)
+    command: python -m src.nodes.main --env-file .env.docker --node-type queue
+    networks: [dist_sys_net]
+    depends_on: [redis]
+
+  # --- Node Cache (MESI) ---
+  node_cache_1:
+    build: { context: .., dockerfile: docker/Dockerfile.node }
+    container_name: node_cache_1
+    hostname: node_cache_1
+    environment:
+      - NODE_ID=node-cache-1
+      - NODE_HOST=0.0.0.0
+      - NODE_PORT=7001
+      # - PEER_ADDRESSES=http://node_cache_2:7002,http://node_cache_3:7003
+      - REDIS_HOST=redis # Meskipun tidak dipakai, kita set saja
+      - REDIS_PORT=6379
+    ports: ["7001:7001"]
+    # Perintah untuk menjalankan node cache (Poin 1, 2)
+    command: python -m src.nodes.main --env-file .env.docker --node-type cache
+    networks: [dist_sys_net]
+    depends_on: [redis] # Tidak wajib, tapi tidak apa-apa
+
+  node_queue_scalable: # Nama service baru untuk scaling
+    build: { context: .., dockerfile: docker/Dockerfile.node }
+    # container_name tidak bisa dipakai jika di-scale
+    # hostname akan otomatis dibuat unik oleh Docker
+    environment:
+      - NODE_ID=node-queue-scalable # ID perlu dibuat unik saat runtime (lebih canggih)
+      - NODE_HOST=0.0.0.0
+      - NODE_PORT=9000 
+      # - PEER_ADDRESSES= 
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+    command: python -m src.nodes.main --env-file .env.docker --node-type queue
+    networks: [dist_sys_net]
+    depends_on: [redis]
+
+networks:
+  dist_sys_net:
+
+volumes:
+  redis_data:
