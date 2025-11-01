@@ -1,5 +1,9 @@
 Deployment Guide dan Troubleshooting
 
+Link Laporan: https://drive.google.com/file/d/1G7zdeeRxtlgzUAYyb62s5w7u9AjWsjKS/view?usp=drive_link 
+Link YouTube: https://youtu.be/C5gv2vC3418?si=ym6c1u8q0n0_vLBI 
+Link GitHub: https://github.com/fadilahmalfoy/distributed-sync-system.git
+
 Bagian ini menjelaskan cara menjalankan dan memecahkan masalah Sistem Sinkronisasi Terdistribusi. Teknologi yang digunakan diantaranya adalah Python 3.8+, Pip (Python package installer), Git, Docker dan Docker Compose (untuk deployment via Docker), serta Redis Server (berjalan di localhost:6379 untuk deployment lokal).
 
 1). Deployment Lokal (untuk Pengembangan & Debugging)
